@@ -23,8 +23,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.2.0",
-    description="B2B sales operations API for leads, pipeline governance, and forecasting.",
+    version="0.3.0",
+    description="B2B sales operations API for leads, pipeline, execution, and forecasting.",
     openapi_url=f"{settings.api_v1_prefix}/openapi.json",
     docs_url="/docs",
     redoc_url="/redoc",

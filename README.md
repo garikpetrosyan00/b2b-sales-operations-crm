@@ -1,9 +1,9 @@
 # B2B Sales Operations CRM
 
 A production-style B2B sales operations platform focused on lead qualification, pipeline SLA
-governance, and revenue forecasting. Phase 2 adds a complete lead workspace, a visual opportunity
-pipeline, database-backed metrics, record ownership controls, and realistic portfolio demo data.
-Tasks and advanced reporting remain deliberately scoped to later phases.
+governance, execution, and revenue forecasting. The portfolio release includes a complete lead
+workspace, visual opportunity pipeline, deal activity timeline, connected sales tasks, live reports,
+team visibility, record ownership controls, and realistic demo data.
 
 All names shown in the interface are product/demo labels. The project does not claim real customer
 implementations or business outcomes.
@@ -18,7 +18,7 @@ implementations or business outcomes.
 - Reusable API role guard plus role-aware frontend navigation.
 - React, strict TypeScript, React Router, TanStack Query, React Hook Form, Zod, and Tailwind CSS.
 - Protected routes, automatic session refresh, responsive navigation, user/role display, a dashboard,
-  and intentionally scoped next-phase placeholders.
+  and a responsive sales workspace.
 - Docker Compose services for PostgreSQL, API, and the Nginx-served frontend, each with health checks.
 
 ## Phase 2 capabilities
@@ -35,6 +35,19 @@ implementations or business outcomes.
   leads and opportunities assigned to them.
 - An explicit idempotent demo-data command with six stages, companies, contacts, leads, three demo
   owners, and twelve realistic opportunities. It is never run automatically.
+
+## Portfolio release capabilities
+
+- Deal detail drawer with editable value, probability, close date, notes, SLA status, contact and
+  ownership context.
+- Auditable deal timeline combining stage transitions with calls, emails, meetings, and notes.
+- Connected sales tasks with priorities, due dates, assignees, lead/deal context, overdue signals,
+  status transitions, filters, and completion tracking.
+- Live revenue reports covering pipeline and weighted value by stage, won revenue, win rate,
+  average deal size, lead-source conversion, task risk, and owner performance.
+- Team workspace with role-aware access and portfolio ownership metrics.
+- Admin settings view with pipeline probabilities, SLA configuration, security posture, and local
+  demo preferences.
 
 ## Architecture
 
@@ -53,7 +66,7 @@ FastAPI /api/v1
 PostgreSQL
   ├─ users + hashed, revocable refresh sessions
   ├─ companies + contacts + leads
-  └─ pipeline stages + deals + stage history
+  └─ pipeline stages + deals + stage history + activities + tasks
 ```
 
 The backend separates HTTP routes, configuration/security, database setup, ORM models, Pydantic
@@ -73,15 +86,15 @@ backend/
     db/                declarative base and async sessions
     models/            SQLAlchemy models
     schemas/           Pydantic request/response contracts
-    services/          authentication and user operations
-  scripts/             initial-admin command
-  tests/               API and authentication tests
+    services/          authentication and CRM domain operations
+  scripts/             initial-admin and idempotent demo-data commands
+  tests/               API, security, CRM, tasks, timeline, and reporting tests
 frontend/
   src/
     auth/              authentication context/provider
-    components/        protected route and CRM shell
+    components/        protected routes, CRM shell, and deal workspace
     lib/               centralized API/session code
-    pages/              login, live dashboard, leads, pipeline, placeholders
+    pages/              login, dashboard, leads, pipeline, tasks, reports, team, settings
     types/              shared TypeScript contracts
 docker-compose.yml
 ```
@@ -167,7 +180,8 @@ sales owners receive random, unrecoverable passwords and exist only for ownershi
 command is opt-in and is never invoked by application startup or migrations.
 
 The demo workspace contains deliberate SLA risks, varied values and close dates, won/lost deals,
-and overdue follow-ups so the dashboard and pipeline communicate realistic operational states.
+connected tasks, activity history, and overdue follow-ups so every primary screen communicates a
+realistic operational state.
 
 ## Database migrations
 
@@ -242,6 +256,10 @@ docker compose config --quiet
 - `GET /api/v1/pipeline-stages`
 - `GET|POST|PATCH /api/v1/deals`
 - `POST /api/v1/deals/{deal_id}/transition`
+- `GET /api/v1/deals/{deal_id}/timeline`
+- `POST /api/v1/deals/{deal_id}/activities`
+- `GET|POST|PATCH /api/v1/tasks`
+- `GET /api/v1/reports/summary`
 - `GET /api/v1/pipeline`
 - `GET /api/v1/dashboard/summary`
 - Interactive OpenAPI at `/docs` and ReDoc at `/redoc`
@@ -255,4 +273,5 @@ docker compose config --quiet
 - Pipeline stage transitions are made only through the transition endpoint, which creates history.
 - Sales agents see their own leads and deals and cannot modify another owner's records. Admins and
   managers can view, assign, and update all CRM records.
-- The dashboard and board apply the same server-side ownership scope as record endpoints.
+- Tasks, timelines, reports, the dashboard, and the board apply the same server-side ownership scope
+  as record endpoints.

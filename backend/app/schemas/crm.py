@@ -4,7 +4,15 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from app.models.crm import CompanySize, LeadPriority, LeadSource, LeadStatus
+from app.models.crm import (
+    ActivityType,
+    CompanySize,
+    LeadPriority,
+    LeadSource,
+    LeadStatus,
+    TaskPriority,
+    TaskStatus,
+)
 
 
 class CompanyInput(BaseModel):
@@ -229,3 +237,118 @@ class DashboardSummary(BaseModel):
     overdue_follow_up_count: int
     deals_requiring_attention: int
     closing_this_month: Decimal
+
+
+class DealActivityCreate(BaseModel):
+    activity_type: ActivityType = ActivityType.NOTE
+    summary: str = Field(min_length=1, max_length=500)
+    details: str | None = Field(default=None, max_length=5000)
+    occurred_at: datetime | None = None
+
+
+class DealActivityRead(BaseModel):
+    id: UUID
+    deal_id: UUID
+    actor_id: UUID
+    actor_name: str
+    activity_type: ActivityType
+    summary: str
+    details: str | None
+    occurred_at: datetime
+
+
+class StageHistoryRead(BaseModel):
+    id: UUID
+    previous_stage_name: str | None
+    new_stage_name: str
+    changed_by_name: str
+    changed_at: datetime
+    time_spent_seconds: int | None
+
+
+class DealTimeline(BaseModel):
+    activities: list[DealActivityRead]
+    stage_history: list[StageHistoryRead]
+
+
+class TaskCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=240)
+    description: str | None = Field(default=None, max_length=5000)
+    status: TaskStatus = TaskStatus.TODO
+    priority: TaskPriority = TaskPriority.MEDIUM
+    due_at: datetime
+    assignee_id: UUID
+    related_lead_id: UUID | None = None
+    related_deal_id: UUID | None = None
+
+
+class TaskUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=240)
+    description: str | None = Field(default=None, max_length=5000)
+    status: TaskStatus | None = None
+    priority: TaskPriority | None = None
+    due_at: datetime | None = None
+    assignee_id: UUID | None = None
+    related_lead_id: UUID | None = None
+    related_deal_id: UUID | None = None
+
+
+class TaskRead(BaseModel):
+    id: UUID
+    title: str
+    description: str | None
+    status: TaskStatus
+    priority: TaskPriority
+    due_at: datetime
+    completed_at: datetime | None
+    assignee_id: UUID
+    assignee_name: str
+    related_lead_id: UUID | None
+    related_deal_id: UUID | None
+    related_record_name: str
+    is_overdue: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class TaskPage(BaseModel):
+    items: list[TaskRead]
+    total: int
+    todo_count: int
+    overdue_count: int
+    completed_count: int
+
+
+class PipelineReportStage(BaseModel):
+    stage_name: str
+    color: str
+    deal_count: int
+    total_value: Decimal
+    weighted_value: Decimal
+
+
+class OwnerPerformance(BaseModel):
+    owner_id: UUID
+    owner_name: str
+    active_deals: int
+    active_value: Decimal
+    won_deals: int
+    won_value: Decimal
+
+
+class LeadSourceReport(BaseModel):
+    source: LeadSource
+    lead_count: int
+    converted_count: int
+
+
+class ReportsSummary(BaseModel):
+    total_pipeline: Decimal
+    weighted_pipeline: Decimal
+    won_revenue: Decimal
+    win_rate: float
+    average_deal_size: Decimal
+    overdue_tasks: int
+    by_stage: list[PipelineReportStage]
+    by_owner: list[OwnerPerformance]
+    by_source: list[LeadSourceReport]

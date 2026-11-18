@@ -4,6 +4,9 @@ export type CompanySize = "startup" | "small" | "medium" | "enterprise";
 export type LeadSource = "website" | "referral" | "outbound" | "event" | "partner" | "other";
 export type LeadStatus = "new" | "contacted" | "qualified" | "unqualified" | "converted";
 export type LeadPriority = "low" | "medium" | "high" | "urgent";
+export type TaskStatus = "todo" | "in_progress" | "done";
+export type TaskPriority = "low" | "medium" | "high";
+export type ActivityType = "note" | "call" | "email" | "meeting" | "stage_change";
 
 export interface Company {
   id: string;
@@ -109,6 +112,92 @@ export interface DashboardSummary {
   overdue_follow_up_count: number;
   deals_requiring_attention: number;
   closing_this_month: string;
+}
+
+export interface DealActivity {
+  id: string;
+  deal_id: string;
+  actor_id: string;
+  actor_name: string;
+  activity_type: ActivityType;
+  summary: string;
+  details: string | null;
+  occurred_at: string;
+}
+
+export interface StageHistory {
+  id: string;
+  previous_stage_name: string | null;
+  new_stage_name: string;
+  changed_by_name: string;
+  changed_at: string;
+  time_spent_seconds: number | null;
+}
+
+export interface DealTimeline {
+  activities: DealActivity[];
+  stage_history: StageHistory[];
+}
+
+export interface CrmTask {
+  id: string;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  due_at: string;
+  completed_at: string | null;
+  assignee_id: string;
+  assignee_name: string;
+  related_lead_id: string | null;
+  related_deal_id: string | null;
+  related_record_name: string;
+  is_overdue: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskPage {
+  items: CrmTask[];
+  total: number;
+  todo_count: number;
+  overdue_count: number;
+  completed_count: number;
+}
+
+export interface PipelineReportStage {
+  stage_name: string;
+  color: string;
+  deal_count: number;
+  total_value: string;
+  weighted_value: string;
+}
+
+export interface OwnerPerformance {
+  owner_id: string;
+  owner_name: string;
+  active_deals: number;
+  active_value: string;
+  won_deals: number;
+  won_value: string;
+}
+
+export interface LeadSourceReport {
+  source: LeadSource;
+  lead_count: number;
+  converted_count: number;
+}
+
+export interface ReportsSummary {
+  total_pipeline: string;
+  weighted_pipeline: string;
+  won_revenue: string;
+  win_rate: number;
+  average_deal_size: string;
+  overdue_tasks: number;
+  by_stage: PipelineReportStage[];
+  by_owner: OwnerPerformance[];
+  by_source: LeadSourceReport[];
 }
 
 export type Owner = User;

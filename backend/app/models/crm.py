@@ -59,6 +59,26 @@ class LeadPriority(enum.StrEnum):
     URGENT = "urgent"
 
 
+class TaskStatus(enum.StrEnum):
+    TODO = "todo"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+
+
+class TaskPriority(enum.StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class ActivityType(enum.StrEnum):
+    NOTE = "note"
+    CALL = "call"
+    EMAIL = "email"
+    MEETING = "meeting"
+    STAGE_CHANGE = "stage_change"
+
+
 class Company(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "companies"
     # PostgreSQL migration uses a functional lower(name) index. A named-column
@@ -159,6 +179,7 @@ class Lead(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     company: Mapped[Company] = relationship(back_populates="leads")
     primary_contact: Mapped[Contact] = relationship(back_populates="leads")
     owner: Mapped["User"] = relationship(back_populates="leads")
+    tasks: Mapped[list["CrmTask"]] = relationship(back_populates="lead")
 
 
 class Deal(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -201,6 +222,10 @@ class Deal(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     stage_history: Mapped[list["DealStageHistory"]] = relationship(
         back_populates="deal", cascade="all, delete-orphan"
     )
+    activities: Mapped[list["DealActivity"]] = relationship(
+        back_populates="deal", cascade="all, delete-orphan"
+    )
+    tasks: Mapped[list["CrmTask"]] = relationship(back_populates="deal")
 
 
 class DealStageHistory(UUIDPrimaryKeyMixin, Base):
@@ -221,3 +246,71 @@ class DealStageHistory(UUIDPrimaryKeyMixin, Base):
     previous_stage: Mapped[PipelineStage | None] = relationship(foreign_keys=[previous_stage_id])
     new_stage: Mapped[PipelineStage] = relationship(foreign_keys=[new_stage_id])
     changed_by: Mapped["User"] = relationship()
+
+
+class DealActivity(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "deal_activities"
+    __table_args__ = (Index("ix_deal_activities_deal_occurred", "deal_id", "occurred_at"),)
+
+    deal_id: Mapped[UUID] = mapped_column(ForeignKey("deals.id", ondelete="CASCADE"), index=True)
+    actor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    activity_type: Mapped[ActivityType] = mapped_column(
+        Enum(
+            ActivityType,
+            name="activity_type",
+            values_callable=lambda values: [value.value for value in values],
+        )
+    )
+    summary: Mapped[str] = mapped_column(String(500))
+    details: Mapped[str | None] = mapped_column(Text)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now().astimezone(),
+        server_default=func.now(),
+    )
+
+    deal: Mapped[Deal] = relationship(back_populates="activities")
+    actor: Mapped["User"] = relationship(back_populates="deal_activities")
+
+
+class CrmTask(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "crm_tasks"
+    __table_args__ = (
+        CheckConstraint(
+            "related_lead_id IS NOT NULL OR related_deal_id IS NOT NULL",
+            name="ck_task_has_related_record",
+        ),
+        Index("ix_crm_tasks_assignee_status_due", "assignee_id", "status", "due_at"),
+    )
+
+    title: Mapped[str] = mapped_column(String(240))
+    description: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[TaskStatus] = mapped_column(
+        Enum(
+            TaskStatus,
+            name="task_status",
+            values_callable=lambda values: [value.value for value in values],
+        ),
+        default=TaskStatus.TODO,
+    )
+    priority: Mapped[TaskPriority] = mapped_column(
+        Enum(
+            TaskPriority,
+            name="task_priority",
+            values_callable=lambda values: [value.value for value in values],
+        ),
+        default=TaskPriority.MEDIUM,
+    )
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    assignee_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    related_lead_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("leads.id", ondelete="CASCADE"), index=True
+    )
+    related_deal_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("deals.id", ondelete="CASCADE"), index=True
+    )
+
+    assignee: Mapped["User"] = relationship(back_populates="crm_tasks")
+    lead: Mapped[Lead | None] = relationship(back_populates="tasks")
+    deal: Mapped[Deal | None] = relationship(back_populates="tasks")

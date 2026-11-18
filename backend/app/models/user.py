@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
-    from app.models.crm import Deal, Lead
+    from app.models.crm import CrmTask, Deal, DealActivity, Lead
     from app.models.refresh_session import RefreshSession
 
 
@@ -37,3 +37,5 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     leads: Mapped[list["Lead"]] = relationship(back_populates="owner")
     deals: Mapped[list["Deal"]] = relationship(back_populates="owner")
+    crm_tasks: Mapped[list["CrmTask"]] = relationship(back_populates="assignee")
+    deal_activities: Mapped[list["DealActivity"]] = relationship(back_populates="actor")

@@ -16,6 +16,7 @@ import {
   Building2,
   CalendarDays,
   CircleDollarSign,
+  Eye,
   GripVertical,
   RefreshCw,
   Target,
@@ -23,11 +24,12 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { DealDrawer } from "../components/DealDrawer";
 import { ApiError, apiFetch } from "../lib/api";
 import { formatDate, formatMoney } from "../lib/format";
 import type { Deal, PipelineBoard, PipelineColumn } from "../types/crm";
 
-function DealCard({ deal, columns, onMove }: { deal: Deal; columns: PipelineColumn[]; onMove: (dealId: string, stageId: string) => void }) {
+function DealCard({ deal, columns, onMove, onOpen }: { deal: Deal; columns: PipelineColumn[]; onMove: (dealId: string, stageId: string) => void; onOpen: (deal: Deal) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: deal.id,
     data: { stageId: deal.stage_id },
@@ -53,6 +55,7 @@ function DealCard({ deal, columns, onMove }: { deal: Deal; columns: PipelineColu
         <div className="flex items-center gap-2"><UserRound size={14} className="text-slate-400" /> {deal.owner_name}</div>
         <div className="flex items-center gap-2"><CalendarDays size={14} className="text-slate-400" /> Close {formatDate(deal.expected_close_date)}</div>
       </div>
+      <button onClick={() => onOpen(deal)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"><Eye size={14} /> View details</button>
       <label className="mt-3 block md:hidden">
         <span className="sr-only">Move deal to stage</span>
         <select value={deal.stage_id} onChange={(event) => onMove(deal.id, event.target.value)} className="w-full rounded-lg border border-slate-200 px-2 py-2 text-xs text-slate-600">
@@ -63,7 +66,7 @@ function DealCard({ deal, columns, onMove }: { deal: Deal; columns: PipelineColu
   );
 }
 
-function StageColumn({ column, columns, onMove }: { column: PipelineColumn; columns: PipelineColumn[]; onMove: (dealId: string, stageId: string) => void }) {
+function StageColumn({ column, columns, onMove, onOpen }: { column: PipelineColumn; columns: PipelineColumn[]; onMove: (dealId: string, stageId: string) => void; onOpen: (deal: Deal) => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.stage.id });
   return (
     <section ref={setNodeRef} className={`flex w-[315px] shrink-0 flex-col rounded-3xl border p-3 transition ${isOver ? "border-indigo-300 bg-indigo-50/70 ring-4 ring-indigo-100" : "border-slate-200/80 bg-slate-100/65"}`}>
@@ -72,7 +75,7 @@ function StageColumn({ column, columns, onMove }: { column: PipelineColumn; colu
         <div className="mt-2 text-xs font-medium text-slate-500">{formatMoney(column.total_value)} pipeline</div>
       </div>
       <div className="flex min-h-28 flex-1 flex-col gap-3">
-        {column.deals.map((deal) => <DealCard key={deal.id} deal={deal} columns={columns} onMove={onMove} />)}
+        {column.deals.map((deal) => <DealCard key={deal.id} deal={deal} columns={columns} onMove={onMove} onOpen={onOpen} />)}
         {!column.deals.length && <div className="grid min-h-28 place-items-center rounded-2xl border border-dashed border-slate-300 bg-white/50 px-5 text-center text-xs leading-relaxed text-slate-400">Drop an opportunity here</div>}
       </div>
     </section>
@@ -82,6 +85,7 @@ function StageColumn({ column, columns, onMove }: { column: PipelineColumn; colu
 export function PipelinePage() {
   const queryClient = useQueryClient();
   const [transitionError, setTransitionError] = useState<string | null>(null);
+  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 7 } }),
     useSensor(KeyboardSensor),
@@ -167,9 +171,10 @@ export function PipelinePage() {
         <div className="grid min-h-80 place-items-center rounded-3xl border border-dashed border-slate-300 bg-white text-center"><div><CircleDollarSign className="mx-auto text-slate-300" size={40} /><h3 className="mt-4 text-lg font-semibold text-slate-800">No pipeline stages yet</h3><p className="max-w-sm text-sm text-slate-500">Run the idempotent demo-data command to create a complete sales pipeline and realistic opportunities.</p></div></div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={dragEnd}>
-          <div className="flex gap-4 overflow-x-auto pb-5"><span className="sr-only" aria-live="polite">{transition.isPending ? "Moving deal" : "Pipeline ready"}</span>{columns.map((column) => <StageColumn key={column.stage.id} column={column} columns={columns} onMove={move} />)}</div>
+          <div className="flex gap-4 overflow-x-auto pb-5"><span className="sr-only" aria-live="polite">{transition.isPending ? "Moving deal" : "Pipeline ready"}</span>{columns.map((column) => <StageColumn key={column.stage.id} column={column} columns={columns} onMove={move} onOpen={setSelectedDeal} />)}</div>
         </DndContext>
       )}
+      <DealDrawer key={selectedDeal?.id ?? "closed"} deal={selectedDeal} onClose={() => setSelectedDeal(null)} onUpdated={setSelectedDeal} />
     </div>
   );
 }

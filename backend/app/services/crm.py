@@ -7,7 +7,17 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.crm import Company, Contact, Deal, DealStageHistory, Lead, LeadStatus, PipelineStage
+from app.models.crm import (
+    ActivityType,
+    Company,
+    Contact,
+    Deal,
+    DealActivity,
+    DealStageHistory,
+    Lead,
+    LeadStatus,
+    PipelineStage,
+)
 from app.models.user import User, UserRole
 from app.schemas.crm import (
     ContactCreate,
@@ -276,6 +286,7 @@ async def transition_deal(
     if deal.stage_id == new_stage.id:
         return deal
     changed_at = utcnow()
+    previous_stage_name = deal.stage.name if deal.stage else "previous stage"
     history = DealStageHistory(
         deal_id=deal.id,
         previous_stage_id=deal.stage_id,
@@ -289,6 +300,15 @@ async def transition_deal(
     deal.stage_entered_at = changed_at
     deal.probability = new_stage.probability
     db.add(history)
+    db.add(
+        DealActivity(
+            deal_id=deal.id,
+            actor_id=user.id,
+            activity_type=ActivityType.STAGE_CHANGE,
+            summary=f"Moved from {previous_stage_name} to {new_stage.name}",
+            occurred_at=changed_at,
+        )
+    )
     await db.commit()
     return await get_deal_or_404(db, deal.id)
 

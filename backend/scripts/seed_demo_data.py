@@ -7,15 +7,20 @@ from decimal import Decimal
 from app.core.security import hash_password
 from app.db.session import AsyncSessionLocal
 from app.models.crm import (
+    ActivityType,
     Company,
     CompanySize,
     Contact,
+    CrmTask,
     Deal,
+    DealActivity,
     Lead,
     LeadPriority,
     LeadSource,
     LeadStatus,
     PipelineStage,
+    TaskPriority,
+    TaskStatus,
 )
 from app.models.user import User, UserRole
 from sqlalchemy import func, select
@@ -196,12 +201,138 @@ async def seed_demo_data(
                 )
 
         await db.commit()
+
+        demo_deals = {
+            deal.title: deal
+            for deal in (
+                await db.execute(select(Deal).where(Deal.title.in_([item[0] for item in DEALS])))
+            ).scalars()
+        }
+        demo_leads = list((await db.execute(select(Lead).order_by(Lead.created_at))).scalars())
+        task_specs = [
+            (
+                "Confirm technical discovery agenda",
+                "CloudCore partner CRM",
+                1,
+                TaskPriority.HIGH,
+                TaskStatus.IN_PROGRESS,
+            ),
+            (
+                "Send ROI summary and implementation plan",
+                "FinSight sales workspace",
+                -1,
+                TaskPriority.HIGH,
+                TaskStatus.TODO,
+            ),
+            (
+                "Prepare procurement follow-up",
+                "Atlas supplier portal",
+                2,
+                TaskPriority.MEDIUM,
+                TaskStatus.TODO,
+            ),
+            (
+                "Review rollout stakeholders",
+                "Evergreen intake automation",
+                4,
+                TaskPriority.MEDIUM,
+                TaskStatus.TODO,
+            ),
+            (
+                "Share renewal success metrics",
+                "Brightpath renewal platform",
+                -3,
+                TaskPriority.LOW,
+                TaskStatus.DONE,
+            ),
+        ]
+        for index, (title, deal_title, due_days, priority, task_state) in enumerate(task_specs):
+            if await db.scalar(select(CrmTask.id).where(CrmTask.title == title)) is None:
+                completed_at = now - timedelta(days=1) if task_state == TaskStatus.DONE else None
+                db.add(
+                    CrmTask(
+                        title=title,
+                        description=(
+                            "Portfolio demo follow-up generated from the live sales workflow."
+                        ),
+                        status=task_state,
+                        priority=priority,
+                        due_at=now + timedelta(days=due_days),
+                        completed_at=completed_at,
+                        assignee_id=users[index % len(users)].id,
+                        related_deal_id=demo_deals[deal_title].id,
+                    )
+                )
+        if demo_leads:
+            title = "Qualify the highest-value inbound lead"
+            if await db.scalar(select(CrmTask.id).where(CrmTask.title == title)) is None:
+                db.add(
+                    CrmTask(
+                        title=title,
+                        description="Validate business need, timing, and decision process.",
+                        status=TaskStatus.TODO,
+                        priority=TaskPriority.HIGH,
+                        due_at=now + timedelta(days=1),
+                        assignee_id=demo_leads[0].owner_id,
+                        related_lead_id=demo_leads[0].id,
+                    )
+                )
+
+        activity_specs = [
+            (
+                "CloudCore partner CRM",
+                ActivityType.MEETING,
+                "Discovery workshop completed",
+                "Mapped the partner onboarding workflow and agreed on success metrics.",
+                2,
+            ),
+            (
+                "Atlas supplier portal",
+                ActivityType.EMAIL,
+                "Security overview shared",
+                "Sent the architecture and access-control summary to procurement.",
+                1,
+            ),
+            (
+                "Evergreen intake automation",
+                ActivityType.CALL,
+                "Stakeholder alignment call",
+                "Confirmed the phased rollout and clinical operations stakeholders.",
+                3,
+            ),
+        ]
+        for index, (deal_title, activity_kind, summary, details, days_ago) in enumerate(
+            activity_specs
+        ):
+            if (
+                await db.scalar(
+                    select(DealActivity.id).where(
+                        DealActivity.deal_id == demo_deals[deal_title].id,
+                        DealActivity.summary == summary,
+                    )
+                )
+                is None
+            ):
+                db.add(
+                    DealActivity(
+                        deal_id=demo_deals[deal_title].id,
+                        actor_id=users[index % len(users)].id,
+                        activity_type=activity_kind,
+                        summary=summary,
+                        details=details,
+                        occurred_at=now - timedelta(days=days_ago),
+                    )
+                )
+
+        await db.commit()
         counts = {
             "stages": await db.scalar(select(func.count()).select_from(PipelineStage)) or 0,
             "companies": await db.scalar(select(func.count()).select_from(Company)) or 0,
             "contacts": await db.scalar(select(func.count()).select_from(Contact)) or 0,
             "leads": await db.scalar(select(func.count()).select_from(Lead)) or 0,
             "deals": await db.scalar(select(func.count()).select_from(Deal)) or 0,
+            "tasks": await db.scalar(select(func.count()).select_from(CrmTask)) or 0,
+            "activities": await db.scalar(select(func.count()).select_from(DealActivity)) or 0,
         }
     output(
         "Demo CRM data is ready: " + ", ".join(f"{key}={value}" for key, value in counts.items())

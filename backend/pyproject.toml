@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sales-operations-crm-api"
-version = "0.2.0"
+version = "0.3.0"
 description = "API for a B2B sales operations CRM"
 requires-python = ">=3.12"
 dependencies = [
