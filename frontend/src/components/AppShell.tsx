@@ -99,10 +99,10 @@ export function AppShell() {
       </nav>
       <div className="m-4 rounded-xl border border-white/10 bg-white/5 p-4">
         <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-          Phase 1
+          Live operations
         </div>
         <p className="m-0 text-xs leading-relaxed text-slate-400">
-          Secure workspace foundation is ready. CRM modules arrive next.
+          Leads, pipeline SLAs, and revenue signals are connected.
         </p>
       </div>
     </div>

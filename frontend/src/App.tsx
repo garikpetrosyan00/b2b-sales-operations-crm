@@ -6,6 +6,8 @@ import { RoleRoute } from "./components/RoleRoute";
 import { ComingSoonPage } from "./pages/ComingSoonPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
+import { LeadsPage } from "./pages/LeadsPage";
+import { PipelinePage } from "./pages/PipelinePage";
 
 export function App() {
   return (
@@ -14,8 +16,8 @@ export function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route index element={<DashboardPage />} />
-          <Route path="leads" element={<ComingSoonPage title="Leads" />} />
-          <Route path="pipeline" element={<ComingSoonPage title="Pipeline" />} />
+          <Route path="leads" element={<LeadsPage />} />
+          <Route path="pipeline" element={<PipelinePage />} />
           <Route path="tasks" element={<ComingSoonPage title="Tasks" />} />
           <Route path="reports" element={<ComingSoonPage title="Reports" />} />
           <Route

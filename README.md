@@ -1,9 +1,9 @@
 # B2B Sales Operations CRM
 
-A production-style foundation for a B2B sales operations platform focused on lead routing,
-pipeline SLA governance, and revenue forecasting. This repository currently contains **Phase 1
-only**: platform architecture, authentication, role-based access controls, and the responsive CRM
-application shell. Leads, pipeline, tasks, reports, and forecasting are deliberately placeholders.
+A production-style B2B sales operations platform focused on lead qualification, pipeline SLA
+governance, and revenue forecasting. Phase 2 adds a complete lead workspace, a visual opportunity
+pipeline, database-backed metrics, record ownership controls, and realistic portfolio demo data.
+Tasks and advanced reporting remain deliberately scoped to later phases.
 
 All names shown in the interface are product/demo labels. The project does not claim real customer
 implementations or business outcomes.
@@ -21,6 +21,21 @@ implementations or business outcomes.
   and intentionally scoped next-phase placeholders.
 - Docker Compose services for PostgreSQL, API, and the Nginx-served frontend, each with health checks.
 
+## Phase 2 capabilities
+
+- Companies and contacts with normalized, searchable commercial data.
+- Paginated leads with search, owner/source/status/priority filters, sorting, follow-up tracking,
+  create/edit workflows, and transactional conversion to opportunities.
+- A responsive Kanban sales pipeline with stage value totals, deal probability, expected close
+  dates, stage SLA warnings, drag-and-drop transitions, optimistic updates, and rollback on failure.
+- Immutable deal stage history recording the actor, previous/new stages, timestamp, and time spent.
+- Live dashboard metrics for active and weighted pipeline value, monthly closing value, overdue
+  follow-ups, open opportunities, and deals requiring attention.
+- Server-side ownership authorization: admins/managers manage all records; sales agents are scoped to
+  leads and opportunities assigned to them.
+- An explicit idempotent demo-data command with six stages, companies, contacts, leads, three demo
+  owners, and twelve realistic opportunities. It is never run automatically.
+
 ## Architecture
 
 ```text
@@ -36,8 +51,9 @@ FastAPI /api/v1
              │
              ▼
 PostgreSQL
-  ├─ users
-  └─ hashed, revocable refresh sessions
+  ├─ users + hashed, revocable refresh sessions
+  ├─ companies + contacts + leads
+  └─ pipeline stages + deals + stage history
 ```
 
 The backend separates HTTP routes, configuration/security, database setup, ORM models, Pydantic
@@ -65,7 +81,7 @@ frontend/
     auth/              authentication context/provider
     components/        protected route and CRM shell
     lib/               centralized API/session code
-    pages/              login, dashboard, phase placeholders
+    pages/              login, live dashboard, leads, pipeline, placeholders
     types/              shared TypeScript contracts
 docker-compose.yml
 ```
@@ -78,6 +94,8 @@ Requirements: Docker with Compose v2.
 cp .env.example .env
 # Replace POSTGRES_PASSWORD and JWT_SECRET_KEY in .env.
 docker compose up --build -d
+docker compose exec backend python -m scripts.create_admin
+docker compose exec backend python -m scripts.seed_demo_data
 ```
 
 Apply migrations is part of the backend container startup. Open:
@@ -134,6 +152,22 @@ cd backend
 source .venv/bin/activate
 python -m scripts.create_admin
 ```
+
+## Portfolio demo data
+
+Run migrations and create the first administrator before loading demo data:
+
+```bash
+docker compose exec backend python -m scripts.create_admin
+docker compose exec backend python -m scripts.seed_demo_data
+```
+
+The seed command is idempotent: rerunning it updates nothing and does not duplicate records. Demo
+sales owners receive random, unrecoverable passwords and exist only for ownership display. The
+command is opt-in and is never invoked by application startup or migrations.
+
+The demo workspace contains deliberate SLA risks, varied values and close dates, won/lost deals,
+and overdue follow-ups so the dashboard and pipeline communicate realistic operational states.
 
 ## Database migrations
 
@@ -200,4 +234,25 @@ docker compose config --quiet
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
 - `GET /api/v1/users/me`
+- `GET /api/v1/users`
+- `GET|POST|PATCH /api/v1/companies`
+- `GET|POST|PATCH /api/v1/contacts`
+- `GET|POST|PATCH /api/v1/leads`
+- `POST /api/v1/leads/{lead_id}/convert`
+- `GET /api/v1/pipeline-stages`
+- `GET|POST|PATCH /api/v1/deals`
+- `POST /api/v1/deals/{deal_id}/transition`
+- `GET /api/v1/pipeline`
+- `GET /api/v1/dashboard/summary`
 - Interactive OpenAPI at `/docs` and ReDoc at `/redoc`
+
+## Domain and authorization rules
+
+- A contact must belong to the selected company for every lead and deal.
+- Monetary values use fixed-precision decimals; probabilities are constrained to `0..100` and
+  currencies to three-character codes.
+- Lead conversion and deal stage movement commit atomically. Invalid/inactive stages are rejected.
+- Pipeline stage transitions are made only through the transition endpoint, which creates history.
+- Sales agents see their own leads and deals and cannot modify another owner's records. Admins and
+  managers can view, assign, and update all CRM records.
+- The dashboard and board apply the same server-side ownership scope as record endpoints.

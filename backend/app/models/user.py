@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
+    from app.models.crm import Deal, Lead
     from app.models.refresh_session import RefreshSession
 
 
@@ -34,3 +35,5 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     refresh_sessions: Mapped[list["RefreshSession"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    leads: Mapped[list["Lead"]] = relationship(back_populates="owner")
+    deals: Mapped[list["Deal"]] = relationship(back_populates="owner")
